@@ -66,11 +66,86 @@ export default function CheckoutPage() {
     // Here you would normally send the order to your backend
     console.log('Order submitted:', values);
     toast.success("Order placed successfully!");
+    
+    // Clear cart
+    // localStorage.removeItem('cart');
+    
+    // Redirect to order confirmation
     setTimeout(() => {
       setSubmitting(false);
       navigate('/order-confirmation');
     }, 1000);
   };
+
+
+
+  
+    const [isFlipped, setIsFlipped] = useState(false);
+    const [cardNumber, setCardNumber] = useState("");
+    const [cardType, setCardType] = useState("");
+  
+    // Format card number with spaces
+    const formatCardNumber = (value) => {
+      const v = value.replace(/\s+/g, "").replace(/[^0-9]/g, "");
+      const matches = v.match(/\d{4,16}/g);
+      const match = (matches && matches[0]) || "";
+      const parts = [];
+  
+      for (let i = 0; i < match.length; i += 4) {
+        parts.push(match.substring(i, i + 4));
+      }
+  
+      if (parts.length) {
+        return parts.join(" ");
+      } else {
+        return value;
+      }
+    };
+  
+    // Detect card type
+    useEffect(() => {
+      if (!cardNumber) {
+        setCardType("");
+        return;
+      }
+  
+      const cleanedNumber = cardNumber.replace(/\s+/g, "");
+  
+      if (/^4/.test(cleanedNumber)) {
+        setCardType("visa");
+      } else if (/^5[1-5]/.test(cleanedNumber)) {
+        setCardType("mastercard");
+      } else if (/^3[47]/.test(cleanedNumber)) {
+        setCardType("amex");
+      } else if (/^6(?:011|5)/.test(cleanedNumber)) {
+        setCardType("discover");
+      } else {
+        setCardType("");
+      }
+    }, [cardNumber]);
+  
+    // Handle card number input
+    const handleCardNumberChange = (e) => {
+      const formatted = formatCardNumber(e.target.value);
+      setCardNumber(formatted.substring(0, 19)); // Limit to 16 digits + spaces
+    };
+  
+    // Handle CVV focus to flip the card
+    const handleCvvFocus = () => {
+      setIsFlipped(true);
+    };
+  
+    const handleCvvBlur = () => {
+      setIsFlipped(false);
+    };
+  
+    // Generate years for expiry selection
+    const years = Array.from(
+      { length: 12 },
+      (_, i) => new Date().getFullYear() + i
+    );
+  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6 text-center">Checkout</h1>

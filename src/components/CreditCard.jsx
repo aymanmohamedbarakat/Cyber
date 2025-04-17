@@ -1,32 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
-
-// Credit card validation schema
-const CardSchema = Yup.object().shape({
-  cardNumber: Yup.string()
-    .required("Card number is required")
-    .matches(/^[0-9\s]+$/, "Card number can only contain numbers")
-    .test(
-      "len",
-      "Card number must be valid",
-      (val) => val && val.replace(/\s+/g, "").length >= 13
-    ),
-  cardName: Yup.string()
-    .required("Cardholder name is required")
-    .min(2, "Name must be at least 2 characters"),
-  expiryMonth: Yup.string().required("Month is required"),
-  expiryYear: Yup.string().required("Year is required"),
-  cvv: Yup.string()
-    .required("CVV is required")
-    .matches(/^\d+$/, "CVV must be numeric")
-    .min(3, "CVV must be at least 3 digits")
-    .max(4, "CVV cannot exceed 4 digits")
-});
+import React, { useEffect, useState } from "react";
 
 export default function CreditCard({ onChange }) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [expiryMonth, setExpiryMonth] = useState("");
+  const [expiryYear, setExpiryYear] = useState("");
+  const [cvv, setCvv] = useState("");
   const [cardType, setCardType] = useState("");
+  const [cardData, setCardData] = useState({
+    cardNumber: "",
+    cardName: "",
+    expiryMonth: "",
+    expiryYear: "",
+    cvv: ""
+  });
 
   // Format card number with spaces
   const formatCardNumber = (value) => {
@@ -46,23 +34,69 @@ export default function CreditCard({ onChange }) {
     }
   };
 
-  // Detect card type based on number
-  const detectCardType = (number) => {
-    if (!number) return "";
-    
-    const cleanedNumber = number.replace(/\s+/g, "");
+  // Detect card type
+  useEffect(() => {
+    if (!cardNumber) {
+      setCardType("");
+      return;
+    }
+
+    const cleanedNumber = cardNumber.replace(/\s+/g, "");
 
     if (/^4/.test(cleanedNumber)) {
-      return "visa";
+      setCardType("visa");
     } else if (/^5[1-5]/.test(cleanedNumber)) {
-      return "mastercard";
+      setCardType("mastercard");
     } else if (/^3[47]/.test(cleanedNumber)) {
-      return "amex";
+      setCardType("amex");
     } else if (/^6(?:011|5)/.test(cleanedNumber)) {
-      return "discover";
+      setCardType("discover");
     } else {
-      return "";
+      setCardType("");
     }
+    
+    // Update card data when card number changes
+    updateCardData();
+  }, [cardNumber]);
+
+  // Update card data when fields change
+  useEffect(() => {
+    updateCardData();
+  }, [cardName, expiryMonth, expiryYear, cvv]);
+
+  // Update card data with current values
+  const updateCardData = () => {
+    const newCardData = {
+      cardNumber,
+      cardName,
+      expiryMonth,
+      expiryYear,
+      cvv
+    };
+    
+    setCardData(newCardData);
+  };
+
+  // Send card data to parent component only when cardData changes
+  useEffect(() => {
+    if (onChange) {
+      onChange(cardData);
+    }
+  }, [cardData, onChange]);
+
+  // Handle card number input
+  const handleCardNumberChange = (e) => {
+    const formatted = formatCardNumber(e.target.value);
+    setCardNumber(formatted.substring(0, 19)); // Limit to 16 digits + spaces
+  };
+
+  // Handle CVV focus to flip the card
+  const handleCvvFocus = () => {
+    setIsFlipped(true);
+  };
+
+  const handleCvvBlur = () => {
+    setIsFlipped(false);
   };
 
   // Generate years for expiry selection
@@ -73,256 +107,174 @@ export default function CreditCard({ onChange }) {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <Formik
-        initialValues={{
-          cardNumber: "",
-          cardName: "",
-          expiryMonth: "",
-          expiryYear: "",
-          cvv: ""
-        }}
-        validationSchema={CardSchema}
-        onSubmit={(values) => {
-          // In a real application, you'd handle the submission here
-          console.log("Form submitted", values);
-        }}
-      >
-        {({ values, setFieldValue, handleBlur }) => {
-          // Update card type when card number changes
-          useEffect(() => {
-            setCardType(detectCardType(values.cardNumber));
-            
-            // Pass form data to parent via onChange callback
-            if (onChange) {
-              onChange(values);
-            }
-          }, [values]);
-
-          // Custom handlers
-          const handleCardNumberChange = (e) => {
-            const formatted = formatCardNumber(e.target.value);
-            setFieldValue("cardNumber", formatted.substring(0, 19));
-          };
-
-          const handleCvvFocus = () => setIsFlipped(true);
-          const handleCvvBlur = (e) => {
-            setIsFlipped(false);
-            handleBlur(e);
-          };
-
-          return (
-            <>
-              <div className="relative mb-8">
-                {/* Card Container with flip effect */}
-                <div
-                  className="relative w-full h-56 transition-transform duration-700"
-                  style={{ 
-                    perspective: "1000px",
-                    transformStyle: "preserve-3d",
-                    transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)"
-                  }}
-                >
-                  {/* Front of Card */}
-                  <div
-                    className="absolute w-full h-full bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl shadow-lg px-6 py-4 text-white"
-                    style={{ 
-                      backfaceVisibility: "hidden",
-                      visibility: isFlipped ? "hidden" : "visible"
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="text-lg font-bold">Credit Card</div>
-                      {cardType && (
-                        <div className="h-8 w-12 rounded bg-white p-1">
-                          {cardType === "visa" && (
-                            <div className="text-blue-600 font-bold text-xs">VISA</div>
-                          )}
-                          {cardType === "mastercard" && (
-                            <div className="text-orange-600 font-bold text-xs">MC</div>
-                          )}
-                          {cardType === "amex" && (
-                            <div className="text-blue-500 font-bold text-xs">AMEX</div>
-                          )}
-                          {cardType === "discover" && (
-                            <div className="text-orange-500 font-bold text-xs">
-                              DISC
-                            </div>
-                          )}
-                        </div>
-                      )}
+      <div className="relative mb-8">
+        {/* Card Container with flip effect */}
+        <div
+          className="relative w-full h-56 transition-transform duration-700"
+          style={{ 
+            perspective: "1000px",
+            transformStyle: "preserve-3d",
+            transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)"
+          }}
+        >
+          {/* Front of Card */}
+          <div
+            className="absolute w-full h-full bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl shadow-lg px-6 py-4 text-white"
+            style={{ 
+              backfaceVisibility: "hidden",
+              visibility: isFlipped ? "hidden" : "visible"
+            }}
+          >
+            <div className="flex justify-between items-start">
+              <div className="text-lg font-bold">Credit Card</div>
+              {cardType && (
+                <div className="h-8 w-12 rounded bg-white p-1">
+                  {cardType === "visa" && (
+                    <div className="text-blue-600 font-bold text-xs">VISA</div>
+                  )}
+                  {cardType === "mastercard" && (
+                    <div className="text-orange-600 font-bold text-xs">MC</div>
+                  )}
+                  {cardType === "amex" && (
+                    <div className="text-blue-500 font-bold text-xs">AMEX</div>
+                  )}
+                  {cardType === "discover" && (
+                    <div className="text-orange-500 font-bold text-xs">
+                      DISC
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                    <div className="mt-6">
-                      <div className="h-6 w-10 bg-yellow-400 rounded mb-4"></div>
-                      <div className="text-xl mb-6 font-mono">
-                        {values.cardNumber || "•••• •••• •••• ••••"}
-                      </div>
+            <div className="mt-6">
+              <div className="h-6 w-10 bg-yellow-400 rounded mb-4"></div>
+              <div className="text-xl mb-6 font-mono">
+                {cardNumber || "•••• •••• •••• ••••"}
+              </div>
 
-                      <div className="flex justify-between">
-                        <div>
-                          <div className="text-xs opacity-75 mb-1">Card Holder</div>
-                          <div className="font-medium uppercase text-sm">
-                            {values.cardName || "YOUR NAME"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs opacity-75 mb-1">Expires</div>
-                          <div className="font-medium text-sm">
-                            {values.expiryMonth || "MM"}/
-                            {values.expiryYear 
-                              ? values.expiryYear.toString().substring(2) 
-                              : "YY"}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              <div className="flex justify-between">
+                <div>
+                  <div className="text-xs opacity-75 mb-1">Card Holder</div>
+                  <div className="font-medium uppercase text-sm">
+                    {cardName || "YOUR NAME"}
                   </div>
-
-                  {/* Back of Card */}
-                  <div
-                    className="absolute w-full h-full bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl shadow-lg"
-                    style={{ 
-                      backfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                      visibility: isFlipped ? "visible" : "hidden"
-                    }}
-                  >
-                    <div className="h-12 bg-black w-full mt-4"></div>
-                    <div className="px-6 mt-4">
-                      <div className="flex justify-end items-center mb-4">
-                        <div className="h-10 bg-gray-200 w-3/4 flex items-center justify-end pr-4">
-                          <div className="font-mono">{values.cvv || "•••"}</div>
-                        </div>
-                      </div>
-                      <div className="text-white text-xs mt-4">
-                        <p>
-                          This card is property of the issuing bank. Use of this card
-                          constitutes acceptance of cardholder agreement.
-                        </p>
-                      </div>
-                    </div>
+                </div>
+                <div>
+                  <div className="text-xs opacity-75 mb-1">Expires</div>
+                  <div className="font-medium text-sm">
+                    {expiryMonth || "MM"}/
+                    {expiryYear ? expiryYear.toString().substring(2) : "YY"}
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Card Input Form */}
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <Form>
-                  <div className="mb-4">
-                    <label className="block mb-1 text-sm font-medium">Card Number</label>
-                    <Field
-                      name="cardNumber"
-                      type="text"
-                      placeholder="1234 5678 9012 3456"
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                      maxLength="19"
-                      onChange={handleCardNumberChange}
-                    />
-                    <ErrorMessage
-                      name="cardNumber"
-                      component="div"
-                      className="text-red-500 text-xs mt-1"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="block mb-1 text-sm font-medium">
-                      Card Holder Name
-                    </label>
-                    <Field
-                      name="cardName"
-                      type="text"
-                      placeholder="John Doe"
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    />
-                    <ErrorMessage
-                      name="cardName"
-                      component="div"
-                      className="text-red-500 text-xs mt-1"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block mb-1 text-sm font-medium">Month</label>
-                      <Field
-                        as="select"
-                        name="expiryMonth"
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">MM</option>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                          <option key={month} value={month.toString().padStart(2, "0")}>
-                            {month.toString().padStart(2, "0")}
-                          </option>
-                        ))}
-                      </Field>
-                      <ErrorMessage
-                        name="expiryMonth"
-                        component="div"
-                        className="text-red-500 text-xs mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block mb-1 text-sm font-medium">Year</label>
-                      <Field
-                        as="select"
-                        name="expiryYear"
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">YY</option>
-                        {years.map((year) => (
-                          <option key={year} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </Field>
-                      <ErrorMessage
-                        name="expiryYear"
-                        component="div"
-                        className="text-red-500 text-xs mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block mb-1 text-sm font-medium">CVV</label>
-                      <Field
-                        name="cvv"
-                        type="text"
-                        placeholder="123"
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        maxLength="4"
-                        validate={(value) => {
-                          if (!/^\d+$/.test(value) && value) {
-                            return "CVV must contain only numbers";
-                          }
-                        }}
-                        onFocus={handleCvvFocus}
-                        onBlur={handleCvvBlur}
-                      />
-                      <ErrorMessage
-                        name="cvv"
-                        component="div"
-                        className="text-red-500 text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <button
-                      type="submit"
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Submit
-                    </button>
-                  </div>
-                </Form>
+          {/* Back of Card */}
+          <div
+            className="absolute w-full h-full bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl shadow-lg"
+            style={{ 
+              backfaceVisibility: "hidden",
+              transform: "rotateY(180deg)",
+              visibility: isFlipped ? "visible" : "hidden"
+            }}
+          >
+            <div className="h-12 bg-black w-full mt-4"></div>
+            <div className="px-6 mt-4">
+              <div className="flex justify-end items-center mb-4">
+                <div className="h-10 bg-gray-200 w-3/4 flex items-center justify-end pr-4">
+                  <div className="font-mono">{cvv || "•••"}</div>
+                </div>
               </div>
-            </>
-          );
-        }}
-      </Formik>
+              <div className="text-white text-xs mt-4">
+                <p>
+                  This card is property of the issuing bank. Use of this card
+                  constitutes acceptance of cardholder agreement.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card Input Form */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Card Number</label>
+          <input
+            type="text"
+            value={cardNumber}
+            onChange={handleCardNumberChange}
+            placeholder="1234 5678 9012 3456"
+            className="w-full p-2 border border-gray-300 rounded-md"
+            maxLength="19"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">
+            Card Holder Name
+          </label>
+          <input
+            type="text"
+            value={cardName}
+            onChange={(e) => setCardName(e.target.value)}
+            placeholder="John Doe"
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block mb-1 text-sm font-medium">Month</label>
+            <select
+              value={expiryMonth}
+              onChange={(e) => setExpiryMonth(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            >
+              <option value="">MM</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <option key={month} value={month.toString().padStart(2, "0")}>
+                  {month.toString().padStart(2, "0")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block mb-1 text-sm font-medium">Year</label>
+            <select
+              value={expiryYear}
+              onChange={(e) => setExpiryYear(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            >
+              <option value="">YY</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block mb-1 text-sm font-medium">CVV</label>
+            <input
+              type="text"
+              value={cvv}
+              onChange={(e) =>
+                setCvv(e.target.value.replace(/\D/g, "").substring(0, 4))
+              }
+              onFocus={handleCvvFocus}
+              onBlur={handleCvvBlur}
+              placeholder="123"
+              className="w-full p-2 border border-gray-300 rounded-md"
+              maxLength="4"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
