@@ -29,6 +29,7 @@ export const indexProduct = async (pageNo, pgeSize, filtersId = []) => {
         data: res.data.data, // ممكن عددها يقل لو عملت pagination
       };
       console.log(final);
+      console.log(res.data)
     });
 
   return final;
